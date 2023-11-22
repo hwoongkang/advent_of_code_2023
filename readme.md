@@ -2,7 +2,7 @@
 
 벌써 2023도..
 
-## Advent of Ocde
+## Advent of Code
 
 [대림절](https://en.wikipedia.org/wiki/Advent)은 기독교의 절기로, 크리스마스 4주 전부터 시작됩니다.  
 매주 일요일에 촛불을 하나씩 켜다가, 크리스마스 당일에 가운데의 큰 양초를 점화하게 되는 설레는 절기입니다.
