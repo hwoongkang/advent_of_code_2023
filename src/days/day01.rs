@@ -8,12 +8,12 @@ impl Solution for Day01 {
         String::from("")
     }
 
-    fn solve_part_1(input: String) -> String {
-        input
+    fn solve_part_1(_input: String) -> String {
+        String::from("0")
     }
 
-    fn solve_part_2(input: String) -> String {
-        input
+    fn solve_part_2(_input: String) -> String {
+        String::from("0")
     }
 }
 
