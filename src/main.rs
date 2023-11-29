@@ -1,5 +1,5 @@
-mod days;
-use days::*;
+mod solutions;
+use solutions::*;
 use std::fs;
 use std::time;
 
