@@ -37,8 +37,13 @@ impl Solution for Day02 {
             .to_string()
     }
 
-    fn solve_part_2(_input: String) -> String {
-        String::from("0")
+    fn solve_part_2(input: String) -> String {
+        input
+            .lines()
+            .map(|line| line.parse::<Game>().unwrap())
+            .map(|game| game.get_power())
+            .sum::<usize>()
+            .to_string()
     }
 }
 
@@ -47,6 +52,12 @@ struct Game {
     red: usize,
     green: usize,
     blue: usize,
+}
+
+impl Game {
+    fn get_power(&self) -> usize {
+        self.red * self.green * self.blue
+    }
 }
 
 impl std::str::FromStr for Game {
@@ -134,6 +145,6 @@ mod day02_tests {
     fn test_part_2() {
         let input = Day02::test_input();
         let ans = Day02::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "2286");
     }
 }
