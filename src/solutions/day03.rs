@@ -26,7 +26,31 @@ impl Solution for Day03 {
     }
 
     fn solve_part_2(input: String) -> String {
-        String::from("0")
+        let schematic: EngineSchematic = input.parse().unwrap();
+        let mut gears: HashMap<Pos, Vec<usize>> = HashMap::new();
+        for part in schematic.symbols.iter() {
+            if *part.1 == '*' {
+                gears.insert(*part.0, vec![]);
+            }
+        }
+        for number in schematic.numbers.iter() {
+            for adj in number.adjacent_positions(schematic.size) {
+                if let Some(vec) = gears.get_mut(&adj) {
+                    vec.push(number.value);
+                }
+            }
+        }
+        gears
+            .values()
+            .filter_map(|vec| {
+                if vec.len() == 2 {
+                    Some(vec[0] * vec[1])
+                } else {
+                    None
+                }
+            })
+            .sum::<usize>()
+            .to_string()
     }
 }
 
@@ -170,6 +194,6 @@ mod day03_tests {
     fn test_part_2() {
         let input = Day03::test_input();
         let ans = Day03::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "467835");
     }
 }
