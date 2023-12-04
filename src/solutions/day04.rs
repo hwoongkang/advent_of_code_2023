@@ -26,7 +26,21 @@ impl Solution for Day04 {
     }
 
     fn solve_part_2(input: String) -> String {
-        String::from("0")
+        let cards: Vec<ScratchCard> = input
+            .lines()
+            .map(|line| line.trim().parse().unwrap())
+            .collect();
+        let mut counts: Vec<usize> = cards.iter().map(|_| 1).collect();
+
+        // 1, 3
+        // => 2, 3, 4
+        for i in 0..cards.len() {
+            let matches = cards[i].num_matches();
+            for j in 0..matches {
+                counts[i + j + 1] += counts[i];
+            }
+        }
+        counts.iter().sum::<usize>().to_string()
     }
 }
 
@@ -37,6 +51,14 @@ struct ScratchCard {
 
 impl ScratchCard {
     fn score(&self) -> usize {
+        let matches = self.num_matches();
+        match matches {
+            0 => 0,
+            n => 2usize.pow(n as u32 - 1),
+        }
+    }
+
+    fn num_matches(&self) -> usize {
         let matches: Vec<usize> = self
             .nums
             .iter()
@@ -48,10 +70,7 @@ impl ScratchCard {
                 }
             })
             .collect();
-        match matches.len() {
-            0 => 0,
-            n => 2usize.pow(n as u32 - 1),
-        }
+        matches.len()
     }
 }
 
@@ -97,6 +116,6 @@ mod day04_tests {
     fn test_part_2() {
         let input = Day04::test_input();
         let ans = Day04::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "30");
     }
 }
