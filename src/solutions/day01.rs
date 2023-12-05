@@ -33,13 +33,8 @@ treb7uchet",
 fn get_calibrated_digit(line: &str) -> usize {
     let digits: Vec<usize> = line
         .chars()
-        .filter_map(|c| {
-            if c.is_ascii_digit() {
-                Some((c as u8 - '0' as u8) as usize)
-            } else {
-                None
-            }
-        })
+        .filter_map(|c| c.to_digit(10))
+        .map(|n| n as usize)
         .collect();
     10 * digits.first().unwrap() + digits.last().unwrap()
 }
