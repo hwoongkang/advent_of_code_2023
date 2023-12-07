@@ -1,8 +1,4 @@
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-    str::FromStr,
-};
+use std::{cmp::Ordering, collections::HashMap, str::FromStr};
 
 use super::Solution;
 
@@ -38,7 +34,22 @@ QQQJA 483",
     }
 
     fn solve_part_2(input: String) -> String {
-        String::from("0")
+        let mut game: Vec<(CamelHand, usize)> = input
+            .lines()
+            .map(|l| {
+                let mut words = l.trim().split_whitespace();
+                let hand = words.next().unwrap().replace("J", "1").parse().unwrap();
+                let bid = words.next().unwrap().parse().unwrap();
+                (hand, bid)
+            })
+            .collect();
+        game.sort_by(|s, o| s.0.cmp(&o.0));
+
+        game.iter()
+            .enumerate()
+            .map(|(ind, (_, bid))| bid * (ind + 1))
+            .sum::<usize>()
+            .to_string()
     }
 }
 
@@ -61,6 +72,7 @@ impl PartialOrd for CamelCard {
             ('4', 4),
             ('3', 3),
             ('2', 2),
+            ('1', 1), // to handle joker with convenience
         ]);
         let s = order.get(&self.0);
         let o = order.get(&other.0);
@@ -118,6 +130,45 @@ impl CamelHand {
                 counts.insert(*card, 1);
             }
         }
+
+        let num_joker = counts.remove(&CamelCard('1')).unwrap_or(0);
+
+        match num_joker {
+            0 => self.get_hand_type_without_joker(),
+            4 | 5 => CamelHandType::FiveOfAKind,
+            3 => {
+                if counts.len() == 2 {
+                    CamelHandType::FourOfAKind
+                } else {
+                    CamelHandType::FiveOfAKind
+                }
+            }
+            2 => match counts.len() {
+                3 => CamelHandType::ThreeOfAKind,
+                2 => CamelHandType::FourOfAKind,
+                _ => CamelHandType::FiveOfAKind,
+            },
+            1 => match counts.len() {
+                4 => CamelHandType::OnePair,
+                3 => CamelHandType::ThreeOfAKind,
+                2 => match counts.values().max().unwrap() {
+                    3 => CamelHandType::FourOfAKind,
+                    _ => CamelHandType::FullHouse,
+                },
+                _ => CamelHandType::FiveOfAKind,
+            },
+            _ => unreachable!(),
+        }
+    }
+    fn get_hand_type_without_joker(&self) -> CamelHandType {
+        let mut counts: HashMap<CamelCard, usize> = HashMap::new();
+        for card in self.cards.iter() {
+            if let Some(num) = counts.get_mut(&card) {
+                *num += 1;
+            } else {
+                counts.insert(*card, 1);
+            }
+        }
         let l = counts.len();
         match l {
             5 => CamelHandType::HighCard,
@@ -158,7 +209,7 @@ impl FromStr for CamelHand {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 enum CamelHandType {
     HighCard,
     OnePair,
@@ -181,7 +232,7 @@ mod day07_tests {
     }
 
     #[test]
-    fn parse_camel_hand() {
+    fn test_parse_camel_hand() {
         let hand = "7TQQJ".parse::<CamelHand>();
         assert_eq!(
             hand,
@@ -198,6 +249,14 @@ mod day07_tests {
     }
 
     #[test]
+    fn test_hand_with_joker() {
+        let hand = "Q11Q2".parse::<CamelHand>().unwrap().get_hand_type();
+        assert_eq!(hand, CamelHandType::FourOfAKind);
+        let hand = "T5515".parse::<CamelHand>().unwrap().get_hand_type();
+        assert_eq!(hand, CamelHandType::FourOfAKind);
+    }
+
+    #[test]
     fn test_part_1() {
         let input = Day07::test_input();
         let ans = Day07::solve_part_1(input);
@@ -208,6 +267,6 @@ mod day07_tests {
     fn test_part_2() {
         let input = Day07::test_input();
         let ans = Day07::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "5905");
     }
 }
