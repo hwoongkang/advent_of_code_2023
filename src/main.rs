@@ -3,7 +3,7 @@ use solutions::*;
 use std::fs;
 use std::time;
 
-type Today = Day07;
+type Today = Day08;
 
 fn main() {
     let input = read_input("input.txt");
