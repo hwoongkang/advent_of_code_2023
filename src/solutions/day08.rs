@@ -24,12 +24,51 @@ ZZZ = (ZZZ, ZZZ)",
         let instructions: Vec<char> = lines.next().unwrap().chars().collect();
         lines.next();
         let mut graph = Graph::from(lines);
-        graph.find_ZZZ(&instructions).to_string()
+        graph.find_zzz(&instructions).to_string()
     }
 
     fn solve_part_2(input: String) -> String {
-        String::from("0")
+        let lines = &mut input.lines();
+        let instructions: Vec<char> = lines.next().unwrap().chars().collect();
+        lines.next();
+        let mut graph = Graph::from(lines);
+        let nodes: Vec<String> = graph
+            .nodes
+            .keys()
+            .filter_map(|k| {
+                if k.ends_with("A") {
+                    Some(k.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        nodes
+            .into_iter()
+            .map(|node| {
+                graph.head = node;
+                graph.find_z(&instructions)
+            })
+            .fold(1, |a, b| lcm(a, b))
+            .to_string()
     }
+}
+
+fn gcd(a: usize, b: usize) -> usize {
+    if b < a {
+        gcd(b, a)
+    } else {
+        if b % a == 0 {
+            a
+        } else {
+            gcd(b % a, a)
+        }
+    }
+}
+
+fn lcm(a: usize, b: usize) -> usize {
+    let d = gcd(a, b);
+    a * b / d
 }
 
 fn parse_node_line(line: &str) -> (String, String, String) {
@@ -58,7 +97,20 @@ struct Graph {
 }
 
 impl Graph {
-    fn find_ZZZ(&mut self, instructions: &[char]) -> usize {
+    fn find_z(&mut self, instructions: &[char]) -> usize {
+        let l = instructions.len();
+        let mut i = 0;
+        loop {
+            let j = i % l;
+            let instruction = instructions[j];
+            self.handle_instruction(instruction);
+            if self.head.ends_with("Z") {
+                break i + 1;
+            }
+            i += 1;
+        }
+    }
+    fn find_zzz(&mut self, instructions: &[char]) -> usize {
         let l = instructions.len();
         let mut i = 0;
         loop {
@@ -114,8 +166,19 @@ mod day08_tests {
 
     #[test]
     fn test_part_2() {
-        let input = Day08::test_input();
+        let input = String::from(
+            "LR
+
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)",
+        );
         let ans = Day08::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "6");
     }
 }
