@@ -31,7 +31,21 @@ impl Solution for Day09 {
     }
 
     fn solve_part_2(input: String) -> String {
-        String::from("0")
+        input
+            .lines()
+            .map(|line| {
+                let nums: Vec<i64> = line
+                    .trim()
+                    .split_whitespace()
+                    .map(|w| w.trim().parse().unwrap())
+                    .rev()
+                    .collect();
+                nums
+            })
+            .map(|nums| OasisHistory::from(&nums))
+            .map(|oasis| oasis.predict())
+            .sum::<i64>()
+            .to_string()
     }
 }
 
@@ -85,6 +99,6 @@ mod day09_tests {
     fn test_part_2() {
         let input = Day09::test_input();
         let ans = Day09::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "2");
     }
 }
