@@ -39,7 +39,6 @@ struct Galaxy {
     stars: Vec<Star>,
     empty_rows: HashSet<usize>,
     empty_cols: HashSet<usize>,
-    size: Star,
 }
 
 impl Galaxy {
@@ -92,7 +91,7 @@ impl FromStr for Galaxy {
         let mut empty_rows = HashSet::new();
         let mut empty_cols = HashSet::new();
 
-        let mut chars: Vec<Vec<char>> = s.lines().map(|line| line.chars().collect()).collect();
+        let chars: Vec<Vec<char>> = s.lines().map(|line| line.chars().collect()).collect();
 
         let size = Star(chars.len(), chars[1].len());
         for r in 0..size.0 {
@@ -123,7 +122,6 @@ impl FromStr for Galaxy {
             stars,
             empty_cols,
             empty_rows,
-            size: Star(0, 0),
         })
     }
 }
