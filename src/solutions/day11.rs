@@ -27,7 +27,7 @@ impl Solution for Day11 {
 
     fn solve_part_2(input: String) -> String {
         let galaxy = Galaxy::from_str(&input).unwrap();
-        String::from("0")
+        galaxy.dist(1_000_000, 1).to_string()
     }
 }
 
@@ -142,7 +142,8 @@ mod day11_tests {
     #[test]
     fn test_part_2() {
         let input = Day11::test_input();
-        let ans = Day11::solve_part_2(input);
-        assert_eq!(ans, "");
+        let galaxy = Galaxy::from_str(&input).unwrap();
+
+        assert_eq!(galaxy.dist(10, 1).to_string(), "1030");
     }
 }
