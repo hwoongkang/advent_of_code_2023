@@ -46,8 +46,25 @@ impl Solution for Day13 {
             .to_string()
     }
 
-    fn solve_part_2(_input: String) -> String {
-        String::from("0")
+    fn solve_part_2(input: String) -> String {
+        let mirrors: Vec<Mirror> = input
+            .split("\n\n")
+            .map(|str| str.parse().unwrap())
+            .collect();
+        mirrors
+            .iter()
+            .map(|mirror| {
+                let mut ans = 0;
+                if let Some(r) = mirror.row_smudged_symmetry() {
+                    ans += 100 * r;
+                }
+                if let Some(c) = mirror.col_smudged_symmetry() {
+                    ans += c;
+                }
+                ans
+            })
+            .sum::<usize>()
+            .to_string()
     }
 }
 
@@ -63,6 +80,27 @@ impl Mirror {
                 .map(|c| self.chars.iter().map(|row| row[c]).collect())
                 .collect(),
         }
+    }
+
+    fn row_smudged_symmetry(&self) -> Option<usize> {
+        for r in 1..self.chars.len() {
+            let mut smudges = 0;
+            for (row1, row2) in self.chars[r..].iter().zip(self.chars[0..r].iter().rev()) {
+                for (c1, c2) in row1.iter().zip(row2.iter()) {
+                    if c1 != c2 {
+                        smudges += 1;
+                    }
+                }
+            }
+            if smudges == 1 {
+                return Some(r);
+            }
+        }
+        None
+    }
+
+    fn col_smudged_symmetry(&self) -> Option<usize> {
+        self.transposed().row_smudged_symmetry()
     }
 
     fn row_symmetry(&self) -> Option<usize> {
@@ -109,6 +147,6 @@ mod day13_tests {
     fn test_part_2() {
         let input = Day13::test_input();
         let ans = Day13::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "400");
     }
 }
