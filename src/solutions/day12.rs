@@ -43,8 +43,7 @@ impl Solution for Day12 {
                         .collect::<Vec<_>>(),
                 )
             })
-            .enumerate()
-            .map(|(i, (springs, pattern))| dp(&springs, &pattern))
+            .map(|(springs, pattern)| dp(&springs, &pattern))
             .sum::<usize>()
             .to_string()
     }
@@ -122,7 +121,7 @@ fn dp(springs: &[Spring], pattern: &[usize]) -> usize {
 
         cache.insert((i, n, b), ans);
         ans
-    };
+    }
     inner(0, 0, 0, springs, pattern, &mut cache)
 }
 
