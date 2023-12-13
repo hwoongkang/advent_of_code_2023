@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::Solution;
 
 pub struct Day12;
@@ -18,13 +20,33 @@ impl Solution for Day12 {
         input
             .lines()
             .map(|line| parse_line(line))
-            .map(|(springs, pattern)| brute_force(&springs, &pattern))
+            .map(|(springs, pattern)| dp(&springs, &pattern))
             .sum::<usize>()
             .to_string()
     }
 
     fn solve_part_2(input: String) -> String {
-        String::from("0")
+        input
+            .lines()
+            .map(|line| parse_line(line))
+            .map(|(springs, pattern)| {
+                let mut new_one = springs.clone();
+                for _ in 0..4 {
+                    new_one.push(Spring::Unknown);
+                    new_one.append(&mut springs.clone());
+                }
+                (
+                    new_one,
+                    (0..5)
+                        .map(|_| pattern.clone())
+                        .flatten()
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .enumerate()
+            .map(|(i, (springs, pattern))| dp(&springs, &pattern))
+            .sum::<usize>()
+            .to_string()
     }
 }
 
@@ -48,78 +70,60 @@ fn parse_line(line: &str) -> (Vec<Spring>, Vec<usize>) {
     )
 }
 
-fn check(springs: &[Spring], pattern: &[usize]) -> bool {
-    let mut chunks: Vec<usize> = vec![];
-    let mut last = 0;
-    for s in springs.iter() {
-        if let Spring::Broken = s {
-            last += 1;
-        } else {
-            if last != 0 {
-                chunks.push(last);
-                last = 0;
+fn dp(springs: &[Spring], pattern: &[usize]) -> usize {
+    let mut cache: HashMap<(usize, usize, usize), usize> = HashMap::new();
+
+    fn inner(
+        i: usize,
+        n: usize,
+        b: usize,
+        springs: &[Spring],
+        pattern: &[usize],
+        cache: &mut HashMap<(usize, usize, usize), usize>,
+    ) -> usize {
+        if let Some(ans) = cache.get(&(i, n, b)) {
+            return *ans;
+        }
+
+        if i == springs.len() {
+            if n == pattern.len() && b == 0 {
+                return 1;
+            } else if let Some(&last) = pattern.last() {
+                if last == b && n == pattern.len() - 1 {
+                    return 1;
+                }
+            }
+            return 0;
+        }
+        let mut ans = 0;
+
+        match springs[i] {
+            Spring::Broken => {}
+            _ => {
+                if b == 0 {
+                    ans += inner(i + 1, n, 0, springs, pattern, cache);
+                } else {
+                    if n == pattern.len() {
+                        return 0;
+                    }
+                    if b == pattern[n] {
+                        ans += inner(i + 1, n + 1, 0, springs, pattern, cache);
+                    }
+                }
             }
         }
-    }
-    if last != 0 {
-        chunks.push(last);
-    }
 
-    chunks == pattern
-}
-
-fn perm_with_rep(len: usize) -> Vec<Vec<bool>> {
-    if len == 1 {
-        vec![vec![true], vec![false]]
-    } else {
-        let prev = perm_with_rep(len - 1);
-        prev.iter()
-            .map(|p| {
-                let mut new = vec![];
-                let mut n = p.clone();
-                n.push(false);
-                new.push(n);
-                let mut n = p.clone();
-                n.push(true);
-                new.push(n);
-                new
-            })
-            .flatten()
-            .collect()
-    }
-}
-
-fn brute_force(springs: &[Spring], pattern: &[usize]) -> usize {
-    let mut springs: Vec<Spring> = springs.iter().map(|s| *s).collect();
-    let wild_cards: Vec<usize> = springs
-        .iter()
-        .enumerate()
-        .filter_map(|(i, spring)| {
-            if let Spring::Unknown = spring {
-                Some(i)
-            } else {
-                None
+        match springs[i] {
+            Spring::Operational => {}
+            _ => {
+                ans += inner(i + 1, n, b + 1, springs, pattern, cache);
             }
-        })
-        .collect();
-    let to_check = perm_with_rep(wild_cards.len());
-    to_check
-        .iter()
-        .map(|bools| {
-            wild_cards.iter().enumerate().for_each(|(i, j)| {
-                springs[*j] = if bools[i] {
-                    Spring::Operational
-                } else {
-                    Spring::Broken
-                };
-            });
-            if check(&springs, pattern) {
-                1
-            } else {
-                0
-            }
-        })
-        .sum()
+        }
+
+        cache.insert((i, n, b), ans);
+        ans
+    };
+    inner(0, 0, 0, springs, pattern, &mut cache)
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -141,7 +145,7 @@ impl Spring {
 }
 
 #[cfg(test)]
-mod Day12_tests {
+mod day12_tests {
     use super::*;
 
     #[test]
@@ -155,12 +159,7 @@ mod Day12_tests {
     fn test_part_2() {
         let input = Day12::test_input();
         let ans = Day12::solve_part_2(input);
-        assert_eq!(ans, "");
-    }
 
-    #[test]
-    fn test_permutation() {
-        let perm = perm_with_rep(4);
-        assert_eq!(perm.len(), 16);
+        assert_eq!(ans, "525152");
     }
 }
