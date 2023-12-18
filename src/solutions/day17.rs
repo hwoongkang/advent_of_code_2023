@@ -25,11 +25,12 @@ impl Solution for Day17 {
 
     fn solve_part_1(input: String) -> String {
         let map: Map = input.parse().unwrap();
-        map.minimize().to_string()
+        map.minimize(1, 3).to_string()
     }
 
     fn solve_part_2(input: String) -> String {
-        String::from("0")
+        let map: Map = input.parse().unwrap();
+        map.minimize(4, 10).to_string()
     }
 }
 
@@ -42,8 +43,7 @@ impl Map {
     fn size(&self) -> Pos {
         Pos(self.heat_loss.len(), self.heat_loss[0].len())
     }
-    fn minimize(&self) -> usize {
-        let dest = self.size();
+    fn minimize(&self, inclusive_min: usize, inclusive_max: usize) -> usize {
         let mut heap: BinaryHeap<State> = BinaryHeap::new();
         let mut visited: Vec<Vec<Vec<usize>>> = self
             .heat_loss
@@ -67,7 +67,7 @@ impl Map {
         let dest = self.size();
 
         while let Some(state) = heap.pop() {
-            for next_state in self.next(&state) {
+            for next_state in self.next(&state, inclusive_min, inclusive_max) {
                 let (x, y, z) = next_state.coord();
 
                 if next_state.loss < visited[x][y][z] {
@@ -79,27 +79,40 @@ impl Map {
 
         *visited[dest.0 - 1][dest.1 - 1].iter().min().unwrap()
     }
-    fn next(&self, state: &State) -> Vec<State> {
+    fn next(&self, state: &State, inclusive_min: usize, inclusive_max: usize) -> Vec<State> {
         match state.dir {
             Dir::Down | Dir::Up => self
-                .next_in(state, Dir::Left)
+                .next_in(state, Dir::Left, inclusive_min, inclusive_max)
                 .into_iter()
-                .chain(self.next_in(state, Dir::Right).into_iter())
+                .chain(
+                    self.next_in(state, Dir::Right, inclusive_min, inclusive_max)
+                        .into_iter(),
+                )
                 .collect(),
 
             Dir::Left | Dir::Right => self
-                .next_in(state, Dir::Up)
+                .next_in(state, Dir::Up, inclusive_min, inclusive_max)
                 .into_iter()
-                .chain(self.next_in(state, Dir::Down).into_iter())
+                .chain(
+                    self.next_in(state, Dir::Down, inclusive_min, inclusive_max)
+                        .into_iter(),
+                )
                 .collect(),
         }
     }
 
-    fn next_in(&self, state: &State, dir: Dir) -> Vec<State> {
+    fn next_in(
+        &self,
+        state: &State,
+        dir: Dir,
+        inclusive_min: usize,
+        inclusive_max: usize,
+    ) -> Vec<State> {
         let Pos(r, c) = state.pos;
         let Pos(max_r, max_c) = self.size();
+        let range = inclusive_min..=inclusive_max;
         match dir {
-            Dir::Down => (1..=3)
+            Dir::Down => (range)
                 .filter_map(|i| {
                     let pos = Pos(r + i, c);
                     if pos.0 >= max_r {
@@ -111,7 +124,7 @@ impl Map {
                     }
                 })
                 .collect(),
-            Dir::Up => (1..=3)
+            Dir::Up => (range)
                 .filter_map(|i| {
                     if i > r {
                         None
@@ -123,7 +136,7 @@ impl Map {
                     }
                 })
                 .collect(),
-            Dir::Left => (1..=3)
+            Dir::Left => (range)
                 .filter_map(|i| {
                     if i > c {
                         None
@@ -135,7 +148,7 @@ impl Map {
                     }
                 })
                 .collect(),
-            Dir::Right => (1..=3)
+            Dir::Right => (range)
                 .filter_map(|i| {
                     let pos = Pos(r, c + i);
                     if pos.1 >= max_c {
@@ -218,6 +231,15 @@ mod day17_tests {
     fn test_part_2() {
         let input = Day17::test_input();
         let ans = Day17::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "94");
+        let input = String::from(
+            "111111111111
+        999999999991
+        999999999991
+        999999999991
+        999999999991",
+        );
+        let ans = Day17::solve_part_2(input);
+        assert_eq!(ans, "71");
     }
 }
