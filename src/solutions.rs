@@ -4,6 +4,8 @@ pub trait Solution {
     fn solve_part_2(input: String) -> String;
 }
 
+mod utils;
+
 mod day01;
 pub use day01::Day01;
 mod day02;
