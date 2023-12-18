@@ -23,11 +23,18 @@ impl Solution for Day16 {
     fn solve_part_1(input: String) -> String {
         let contraption: Contraption = input.parse().unwrap();
 
-        contraption.energize().to_string()
+        contraption
+            .energize(Light {
+                r: 0,
+                c: 0,
+                dir: Dir::Right,
+            })
+            .to_string()
     }
 
     fn solve_part_2(input: String) -> String {
-        String::from("0")
+        let contraption: Contraption = input.parse().unwrap();
+        contraption.maximize().to_string()
     }
 }
 
@@ -40,7 +47,37 @@ impl Contraption {
     fn size(&self) -> (usize, usize) {
         (self.wall.len(), self.wall[0].len())
     }
-    fn energize(&self) -> usize {
+
+    fn maximize(&self) -> usize {
+        let (max_r, max_c) = self.size();
+        let mut lights: Vec<Light> = vec![];
+        lights.extend((0..max_r).map(|r| Light {
+            r,
+            c: 0,
+            dir: Dir::Right,
+        }));
+        lights.extend((0..max_r).map(|r| Light {
+            r,
+            c: max_c - 1,
+            dir: Dir::Left,
+        }));
+        lights.extend((0..max_c).map(|c| Light {
+            r: 0,
+            c,
+            dir: Dir::Down,
+        }));
+        lights.extend((0..max_c).map(|c| Light {
+            r: max_r - 1,
+            c,
+            dir: Dir::Up,
+        }));
+        lights
+            .into_iter()
+            .map(|light| self.energize(light))
+            .max()
+            .unwrap()
+    }
+    fn energize(&self, initial: Light) -> usize {
         // r, c, direction
         let mut visited: Vec<Vec<Vec<bool>>> = self
             .wall
@@ -48,11 +85,7 @@ impl Contraption {
             .map(|row| row.iter().map(|_| vec![false; 4]).collect())
             .collect();
 
-        let mut lights: Vec<Light> = vec![Light {
-            r: 0,
-            c: 0,
-            dir: Dir::Right,
-        }];
+        let mut lights: Vec<Light> = vec![initial];
 
         let (r, c, d) = lights[0].coord();
         visited[r][c][d] = true;
@@ -227,6 +260,6 @@ mod day16_tests {
     fn test_part_2() {
         let input = Day16::test_input();
         let ans = Day16::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "51");
     }
 }
