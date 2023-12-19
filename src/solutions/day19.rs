@@ -1,4 +1,8 @@
-use std::{cmp::Ordering, collections::HashMap, rc::Rc, str::FromStr};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, VecDeque},
+    str::FromStr,
+};
 
 use super::Solution;
 
@@ -54,7 +58,40 @@ hdj{m>838:A,pv}
     }
 
     fn solve_part_2(input: String) -> String {
-        String::from("0")
+        let mut accepted_ranges: Vec<PartRange> = vec![];
+        let (workflows, _) = parse_input(input);
+
+        let mut queue: VecDeque<(State, PartRange)> = VecDeque::from(vec![(
+            State::Workflow("in".to_string()),
+            PartRange {
+                x: Range(1, 4001),
+                m: Range(1, 4001),
+                a: Range(1, 4001),
+                s: Range(1, 4001),
+            },
+        )]);
+
+        while let Some((state, part_range)) = queue.pop_front() {
+            match &state {
+                State::Terminated(b) => {
+                    if *b {
+                        accepted_ranges.push(part_range);
+                    }
+                    continue;
+                }
+                State::Workflow(name) => {
+                    let workflow = workflows.get(name).unwrap();
+
+                    let next_states = workflow.handle(part_range);
+                    queue.extend(next_states);
+                }
+            }
+        }
+        accepted_ranges
+            .iter()
+            .map(|range| range.size())
+            .sum::<usize>()
+            .to_string()
     }
 }
 
@@ -78,6 +115,39 @@ fn parse_input(input: String) -> (HashMap<String, Workflow>, Vec<Part>) {
         .collect();
 
     (workflows, parts)
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+struct PartRange {
+    x: Range,
+    m: Range,
+    a: Range,
+    s: Range,
+}
+
+impl PartRange {
+    fn size(&self) -> usize {
+        self.x.size() * self.m.size() * self.a.size() * self.s.size()
+    }
+    fn get(&self, char: &char) -> &Range {
+        match char {
+            'x' => &self.x,
+            'm' => &self.m,
+            'a' => &self.a,
+            's' => &self.s,
+            _ => unreachable!(),
+        }
+    }
+
+    fn replaced(&self, char: &char, range: Range) -> Self {
+        match char {
+            'x' => Self { x: range, ..*self },
+            'm' => Self { m: range, ..*self },
+            'a' => Self { a: range, ..*self },
+            's' => Self { s: range, ..*self },
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -117,11 +187,48 @@ struct Workflow {
 }
 
 impl Workflow {
+    // get an range of parts
+    // and specify which amount of parts goes to where
+    fn handle(&self, part_range: PartRange) -> Vec<(State, PartRange)> {
+        let mut ans = vec![];
+        let mut current_range = part_range;
+        for step in self.steps.iter() {
+            match step {
+                Step::End(state) => ans.push((state.clone(), current_range)),
+                Step::Cond((char, predicate, ordering), state) => {
+                    let if_range = if ordering == &Ordering::Greater {
+                        Range(predicate + 1, 4001)
+                    } else {
+                        Range(1, *predicate)
+                    };
+                    let else_range = if ordering == &Ordering::Greater {
+                        Range(1, predicate + 1)
+                    } else {
+                        Range(*predicate, 4001)
+                    };
+
+                    if let Some(overlap) = current_range.get(char).overlap(&if_range) {
+                        ans.push((state.clone(), current_range.replaced(char, overlap)));
+                    }
+                    if let Some(overlap) = current_range.get(char).overlap(&else_range) {
+                        current_range = current_range.replaced(char, overlap);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        ans
+    }
+
     fn process(&self, part: &Part) -> State {
         for step in self.steps.iter() {
             match step {
                 Step::End(state) => return state.clone(),
-                Step::Cond(f, state) => {
+                Step::Cond(tup, state) => {
+                    let f = Step::get_function(*tup);
+
                     if f(part) {
                         return state.clone();
                     } else {
@@ -151,8 +258,26 @@ impl FromStr for Workflow {
 }
 
 enum Step {
-    Cond(Box<dyn Fn(&Part) -> bool>, State), // condition and state,
+    Cond((char, usize, Ordering), State), // condition and state,
     End(State),
+}
+
+impl Step {
+    fn get_function(
+        (char, predicate, ordering): (char, usize, Ordering),
+    ) -> Box<dyn Fn(&Part) -> bool> {
+        let f = move |part: &Part| -> bool {
+            let part_num = match char {
+                'x' => &part.x,
+                'm' => &part.m,
+                'a' => &part.a,
+                's' => &part.s,
+                _ => panic!("input wrong"),
+            };
+            part_num.cmp(&predicate) == ordering
+        };
+        Box::new(f)
+    }
 }
 
 impl FromStr for Step {
@@ -175,22 +300,12 @@ impl FromStr for Step {
                 _ => panic!("input wrong"),
             };
 
-            let f = move |part: &Part| -> bool {
-                let part_num = match ch {
-                    'x' => &part.x,
-                    'm' => &part.m,
-                    'a' => &part.a,
-                    's' => &part.s,
-                    _ => panic!("input wrong"),
-                };
-                part_num.cmp(&predicate) == ordering
-            };
-            Ok(Self::Cond(Box::new(f), state))
+            Ok(Self::Cond((ch, predicate, ordering), state))
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum State {
     Terminated(bool), // accepted, rejected
     Workflow(String), // to another workflow
@@ -204,6 +319,52 @@ impl FromStr for State {
             "A" => Self::Terminated(true),
             s => Self::Workflow(s.to_string()),
         })
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+struct Range(usize, usize);
+
+impl Range {
+    fn size(&self) -> usize {
+        if self.1 <= self.0 {
+            0
+        } else {
+            self.1 - self.0
+        }
+    }
+    fn overlap(&self, rhs: &Range) -> Option<Range> {
+        if self.overlaps(rhs) {
+            Some(Range(self.0.max(rhs.0), self.1.min(rhs.1)))
+        } else {
+            None
+        }
+    }
+    fn overlaps(&self, rhs: &Range) -> bool {
+        self.0 < rhs.1 && rhs.0 < self.1
+    }
+    fn _contains(&self, rhs: &Range) -> bool {
+        self.0 <= rhs.0 && rhs.1 <= self.1
+    }
+    fn _slice(&self, rhs: &Range) -> (Option<Range>, Vec<Range>) {
+        if !self.overlaps(rhs) {
+            (None, vec![*rhs])
+        } else if self._contains(rhs) {
+            (Some(*rhs), vec![])
+        } else if rhs._contains(self) {
+            (
+                Some(*self),
+                vec![Range(rhs.0, self.0), Range(self.1, rhs.1)],
+            )
+        } else {
+            // (1, 4) (3, 8) => (3, 4), (4, 8)
+            // (3, 8) ,(1, 4) => (3, 4), (1, 3)
+            if rhs.0 > self.0 {
+                (Some(Range(rhs.0, self.1)), vec![Range(self.1, rhs.1)])
+            } else {
+                (Some(Range(self.0, rhs.1)), vec![Range(rhs.0, self.0)])
+            }
+        }
     }
 }
 
@@ -222,6 +383,62 @@ mod day19_tests {
     fn test_part_2() {
         let input = Day19::test_input();
         let ans = Day19::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "167409079868000");
+    }
+
+    #[test]
+    fn test_part_range() {
+        let part_range = PartRange {
+            x: Range(1, 4001),
+            m: Range(1, 4001),
+            a: Range(1, 4001),
+            s: Range(1, 4001),
+        };
+        let workflow: Workflow = "in{s<1351:px,qqz}".parse().unwrap();
+        let v = workflow.handle(part_range);
+        assert_eq!(
+            v,
+            vec![
+                (
+                    State::Workflow("px".to_string()),
+                    PartRange {
+                        x: Range(1, 4001),
+                        m: Range(1, 4001),
+                        a: Range(1, 4001),
+                        s: Range(1, 1351),
+                    }
+                ),
+                (
+                    State::Workflow("qqz".to_string()),
+                    PartRange {
+                        x: Range(1, 4001),
+                        m: Range(1, 4001),
+                        a: Range(1, 4001),
+                        s: Range(1351, 4001),
+                    }
+                ),
+            ]
+        );
+
+        let part_range = PartRange {
+            x: Range(1, 4001),
+            m: Range(1, 4001),
+            a: Range(1, 4001),
+            s: Range(2001, 4001),
+        };
+        let workflow: Workflow = "in{s<1351:px,qqz}".parse().unwrap();
+        let v = workflow.handle(part_range);
+        assert_eq!(
+            v,
+            vec![(
+                State::Workflow("qqz".to_string()),
+                PartRange {
+                    x: Range(1, 4001),
+                    m: Range(1, 4001),
+                    a: Range(1, 4001),
+                    s: Range(2001, 4001),
+                }
+            ),]
+        );
     }
 }
