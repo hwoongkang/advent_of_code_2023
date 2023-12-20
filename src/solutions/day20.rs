@@ -7,16 +7,6 @@ use super::Solution;
 
 pub struct Day20;
 
-fn test_input_complex() -> String {
-    String::from(
-        "broadcaster -> a
-        %a -> inv, con
-        &inv -> b
-        %b -> con
-        &con -> output",
-    )
-}
-
 impl Solution for Day20 {
     fn test_input() -> String {
         String::from(
@@ -32,24 +22,30 @@ impl Solution for Day20 {
         let mut circuit: Circuit = input.parse().unwrap();
         let (mut highs, mut lows) = (0, 0);
         for _ in 0..1000 {
-            let (h, l, _) = circuit.click();
+            let (h, l) = circuit.click();
             highs += h;
             lows += l;
         }
         (highs * lows).to_string()
     }
 
-    fn solve_part_2(input: String) -> String {
-        let mut circuit: Circuit = input.parse().unwrap();
-        let mut count = 0;
-        loop {
-            count += 1;
-            let (_, _, rx) = circuit.click();
-            if rx {
-                break count;
-            }
-        }
-        .to_string()
+    fn solve_part_2(_input: String) -> String {
+        // pz: 100011010111
+        // mh: 110010111111
+        // rn: 110000101111
+        // jt: 111100101111
+        let ans = [
+            "100011010111",
+            "110010111111",
+            "110000101111",
+            "111100101111",
+        ]
+        .iter()
+        .map(|str| -> String { str.chars().rev().collect() })
+        .map(|str| usize::from_str_radix(&str, 2).unwrap())
+        .map(|num| num)
+        .fold(1, |acc, now| lcm(acc, now));
+        (ans).to_string()
     }
 }
 
@@ -57,7 +53,7 @@ type Pulse = bool;
 const HIGH: Pulse = true;
 const LOW: Pulse = false;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct Broadcaster {
     outputs: Vec<String>,
 }
@@ -78,7 +74,7 @@ impl Broadcaster {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct FlipFlop {
     name: String,
     outputs: Vec<String>,
@@ -114,7 +110,7 @@ impl FlipFlop {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct Conjunction {
     name: String,
     outputs: Vec<String>,
@@ -155,7 +151,7 @@ impl Conjunction {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 enum Module {
     Broadcaster(Broadcaster),
     FlipFlop(FlipFlop),
@@ -183,12 +179,24 @@ impl Module {
             Self::Conjunction(c) => Some(c.propagate(input, pulse)),
         }
     }
+
+    fn _reset(&mut self) {
+        match self {
+            Self::FlipFlop(f) => f.state = LOW,
+            Self::Conjunction(c) => {
+                for v in c.state.values_mut() {
+                    *v = LOW;
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 impl<'a> Module {
     fn get_name(&self) -> String {
         match self {
-            Self::Broadcaster(b) => "broadcaster".to_string(),
+            Self::Broadcaster(_) => "broadcaster".to_string(),
             Self::FlipFlop(f) => f.name.clone(),
             Self::Conjunction(c) => c.name.clone(),
         }
@@ -202,6 +210,7 @@ impl<'a> Module {
     }
 }
 
+#[derive(Clone)]
 struct Circuit {
     modules: HashMap<String, Module>,
 }
@@ -234,15 +243,16 @@ impl FromStr for Circuit {
 }
 
 impl Circuit {
-    fn click(&mut self) -> (usize, usize, bool) {
+    fn click(&mut self) -> (usize, usize) {
         let mut highs = 0;
         let mut lows = 0;
-        let mut rx = false;
+
         let from = "".to_string();
         let to = "broadcaster".to_string();
         let signal = LOW;
 
         let mut queue = VecDeque::from([(from, to, signal)]);
+
         while let Some(pulse) = queue.pop_front() {
             let (from, to, signal) = pulse;
             if signal {
@@ -250,9 +260,7 @@ impl Circuit {
             } else {
                 lows += 1;
             }
-            if to == "rx" && signal == LOW {
-                rx = true;
-            }
+
             let Some(module) = self.modules.get_mut(&to)else {
                 continue
             };
@@ -264,13 +272,88 @@ impl Circuit {
                 }
             }
         }
-        (highs, lows, rx)
+        (highs, lows)
     }
+
+    fn _reset(&mut self) {
+        for module in self.modules.values_mut() {
+            module._reset();
+        }
+    }
+
+    fn _check(&self, name: &str) -> bool {
+        let Some(module) = self.modules.get(name) else {
+            panic!("does not exist")
+        };
+        match module {
+            Module::Broadcaster(_) => true,
+            Module::FlipFlop(f) => f.state == LOW,
+            Module::Conjunction(c) => c
+                .state
+                .values() // LOW, LOW, LOW
+                .map(|b| !b) // true, true, true
+                .fold(true, |acc, now| acc && now), //true
+        }
+    }
+
+    fn _get_cycle(&mut self, name: &str) -> usize {
+        let Some(module) = self.modules.get(name) else {
+            panic!("does not exist")
+        };
+        match module {
+            Module::Broadcaster(_) => 1,
+            Module::Conjunction(c) => c
+                .state
+                .keys()
+                .map(|input| {
+                    let mut me = self.clone();
+                    me._reset();
+                    me._get_cycle(input)
+                })
+                .fold(1, |acc, now| lcm(acc, now)),
+            Module::FlipFlop(f) => {
+                let mut me = self.clone();
+                me._reset();
+                let mut count = 0;
+                loop {
+                    count += 1;
+                    me.click();
+                    if me._check(&f.name) {
+                        break count;
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn gcd(a: usize, b: usize) -> usize {
+    if a > b {
+        gcd(b, a)
+    } else if b % a == 0 {
+        a
+    } else {
+        gcd(b % a, a)
+    }
+}
+fn lcm(a: usize, b: usize) -> usize {
+    let d = gcd(a, b);
+    a * b / d
 }
 
 #[cfg(test)]
 mod day20_tests {
     use super::*;
+
+    fn test_input_complex() -> String {
+        String::from(
+            "broadcaster -> a
+        %a -> inv, con
+        &inv -> b
+        %b -> con
+        &con -> output",
+        )
+    }
 
     #[test]
     fn test_part_1() {
