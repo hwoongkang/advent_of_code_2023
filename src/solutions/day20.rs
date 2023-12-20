@@ -32,15 +32,24 @@ impl Solution for Day20 {
         let mut circuit: Circuit = input.parse().unwrap();
         let (mut highs, mut lows) = (0, 0);
         for _ in 0..1000 {
-            let (h, l) = circuit.click();
+            let (h, l, _) = circuit.click();
             highs += h;
             lows += l;
         }
         (highs * lows).to_string()
     }
 
-    fn solve_part_2(_input: String) -> String {
-        String::from("0")
+    fn solve_part_2(input: String) -> String {
+        let mut circuit: Circuit = input.parse().unwrap();
+        let mut count = 0;
+        loop {
+            count += 1;
+            let (_, _, rx) = circuit.click();
+            if rx {
+                break count;
+            }
+        }
+        .to_string()
     }
 }
 
@@ -225,9 +234,10 @@ impl FromStr for Circuit {
 }
 
 impl Circuit {
-    fn click(&mut self) -> (usize, usize) {
+    fn click(&mut self) -> (usize, usize, bool) {
         let mut highs = 0;
         let mut lows = 0;
+        let mut rx = false;
         let from = "".to_string();
         let to = "broadcaster".to_string();
         let signal = LOW;
@@ -240,6 +250,9 @@ impl Circuit {
             } else {
                 lows += 1;
             }
+            if to == "rx" && signal == LOW {
+                rx = true;
+            }
             let Some(module) = self.modules.get_mut(&to)else {
                 continue
             };
@@ -251,7 +264,7 @@ impl Circuit {
                 }
             }
         }
-        (highs, lows)
+        (highs, lows, rx)
     }
 }
 
@@ -268,13 +281,6 @@ mod day20_tests {
         let input = test_input_complex();
         let ans = Day20::solve_part_1(input);
         assert_eq!(ans, "11687500");
-    }
-
-    #[test]
-    fn test_part_2() {
-        let input = Day20::test_input();
-        let ans = Day20::solve_part_2(input);
-        assert_eq!(ans, "");
     }
 
     #[test]
