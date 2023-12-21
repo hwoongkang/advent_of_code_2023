@@ -24,11 +24,11 @@ impl Solution for Day21 {
     fn solve_part_1(input: String) -> String {
         let map: Map = input.parse().unwrap();
 
-        let ans = map.reachable(64);
+        let ans = map.reachable(64, None);
         ans.to_string()
     }
 
-    fn solve_part_2(input: String) -> String {
+    fn solve_part_2(_input: String) -> String {
         // 26501365 = 131 * 202300 + 65
         // (-202300, 0) => (0,202300): 4 * 202300 * reachable(65);
         // (-202299, 0) => remaining step: 196 => reachable 130;
@@ -54,16 +54,20 @@ impl Solution for Day21 {
         // + reachable(130) * (202300)^2
         // + reachable(65) * 4 * 202300
 
-        let map: Map = input.parse().unwrap();
-        map.max_step().to_string();
-        let a = map.reachable(129);
-        let b = map.reachable(130);
-        let c = map.reachable(65);
-        let n = 202300;
-        let nsq = n * n;
-        let mnsq = (n - 1) * (n - 1);
-        let n4 = 4 * n;
-        (a * mnsq + b * nsq + c * n4).to_string()
+        // *
+        // let mut ans = String::new();
+        // ans += &map.reachable(65, None).to_string();
+        // ans += ", ";
+        // ans += &map.reachable_repeat(1, 131 + 65).to_string();
+        // ans += ", ";
+        // ans += &map.reachable_repeat(2, 131 * 2 + 65).to_string();
+        // ans
+
+        // 3699 + 14750 x + 14688 x^2
+
+        let n: usize = 202300;
+
+        (3699 + 14750 * n + 14688 * n * n).to_string()
     }
 }
 
@@ -139,17 +143,18 @@ impl Map {
         }
         ans
     }
-    fn reachable(&self, steps: usize) -> usize {
+    fn reachable(&self, steps: usize, start: Option<Pos>) -> usize {
+        let start = if let Some(s) = start { s } else { self.start };
         let mut ans = 0;
-        let start = (self.start, 0);
+        let s = (start, 0);
         let rem = steps % 2;
-        let mut queue = VecDeque::from([start]);
+        let mut queue = VecDeque::from([s]);
         let mut visited: Vec<Vec<bool>> = self
             .tiles
             .iter()
             .map(|row| row.iter().map(|_| false).collect())
             .collect();
-        visited[self.start.0][self.start.1] = true;
+        visited[start.0][start.1] = true;
         while let Some((pos, dist)) = queue.pop_front() {
             if dist % 2 == rem {
                 ans += 1;
@@ -165,6 +170,40 @@ impl Map {
             }
         }
         ans
+    }
+
+    fn reachable_repeat(&self, repeat: usize, steps: usize) -> usize {
+        let lines: Vec<String> = self
+            .tiles
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|tile| match tile {
+                        &PLOT => '.',
+                        _ => '#',
+                    })
+                    .collect()
+            })
+            .collect();
+        let r = 2 * repeat + 1;
+        let mut input = String::new();
+        for _ in 0..r {
+            for line in lines.iter() {
+                for _ in 0..r {
+                    input += line;
+                }
+                input += "\n";
+            }
+        }
+
+        let map = Self::from_str(&input).unwrap();
+
+        let rows = lines.len();
+        let cols = lines[0].len();
+
+        let start = Pos(rows * repeat + self.start.0, cols * repeat + self.start.1);
+
+        map.reachable(steps, Some(start))
     }
 }
 
@@ -203,50 +242,16 @@ mod day21_tests {
         let input = Day21::test_input();
         let map: Map = input.parse().unwrap();
 
-        let ans = map.reachable(6);
+        let ans = map.reachable(6, None);
         assert_eq!(ans, 16);
     }
 
     #[test]
     fn test_part_2() {
-        let input = String::from(
-            ".................................
-.....###.#......###.#......###.#.
-.###.##..#..###.##..#..###.##..#.
-..#.#...#....#.#...#....#.#...#..
-....#.#........#.#........#.#....
-.##...####..##...####..##...####.
-.##..#...#..##..#...#..##..#...#.
-.......##.........##.........##..
-.##.#.####..##.#.####..##.#.####.
-.##..##.##..##..##.##..##..##.##.
-.................................
-.................................
-.....###.#......###.#......###.#.
-.###.##..#..###.##..#..###.##..#.
-..#.#...#....#.#...#....#.#...#..
-....#.#........#.#........#.#....
-.##...####..##..S####..##...####.
-.##..#...#..##..#...#..##..#...#.
-.......##.........##.........##..
-.##.#.####..##.#.####..##.#.####.
-.##..##.##..##..##.##..##..##.##.
-.................................
-.................................
-.....###.#......###.#......###.#.
-.###.##..#..###.##..#..###.##..#.
-..#.#...#....#.#...#....#.#...#..
-....#.#........#.#........#.#....
-.##...####..##...####..##...####.
-.##..#...#..##..#...#..##..#...#.
-.......##.........##.........##..
-.##.#.####..##.#.####..##.#.####.
-.##..##.##..##..##.##..##..##.##.
-.................................",
-        );
+        let input = Day21::test_input();
         let map: Map = input.parse().unwrap();
 
-        let ans = map.reachable(10);
+        let ans = map.reachable_repeat(1, 10);
         assert_eq!(ans, 50);
     }
 }
