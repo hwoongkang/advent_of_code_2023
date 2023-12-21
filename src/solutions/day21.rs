@@ -28,8 +28,42 @@ impl Solution for Day21 {
         ans.to_string()
     }
 
-    fn solve_part_2(_input: String) -> String {
-        String::from("0")
+    fn solve_part_2(input: String) -> String {
+        // 26501365 = 131 * 202300 + 65
+        // (-202300, 0) => (0,202300): 4 * 202300 * reachable(65);
+        // (-202299, 0) => remaining step: 196 => reachable 130;
+        //              => 202299 * 4 * reachable (130);
+        // (-202298, 0) => remaining step: 327 => reachable 129;
+        //              => 202288 * 4 * reachable (129);
+        // ..
+        // 1 * reachable(129);
+
+        // 1 * reachable(129)
+        // + reachable(129) * 4 * (202298, 202296, .. , 2)
+        // + reachable(130) * 4 * (202299, 202297, .. , 1)
+        // + reachable(65) * 4 * 202300
+
+        // 1 + 3 + 5 + .. + (2n - 1)
+        // 2 * (1 + 2 + .. + n) - n
+        // n * (n + 1) - n = n * n
+
+        // 2 + 4 + 6 + .. + 2n
+        // n * n + n
+        //
+        // reachable(129) * (202299)^2
+        // + reachable(130) * (202300)^2
+        // + reachable(65) * 4 * 202300
+
+        let map: Map = input.parse().unwrap();
+        map.max_step().to_string();
+        let a = map.reachable(129);
+        let b = map.reachable(130);
+        let c = map.reachable(65);
+        let n = 202300;
+        let nsq = n * n;
+        let mnsq = (n - 1) * (n - 1);
+        let n4 = 4 * n;
+        (a * mnsq + b * nsq + c * n4).to_string()
     }
 }
 
@@ -134,6 +168,32 @@ impl Map {
     }
 }
 
+impl Map {
+    fn max_step(&self) -> usize {
+        let mut visited: Vec<Vec<bool>> = self
+            .tiles
+            .iter()
+            .map(|row| row.iter().map(|_| false).collect())
+            .collect();
+        let mut queue = VecDeque::from([(self.start, 0)]);
+        visited[self.start.0][self.start.1] = true;
+
+        let mut ans = 0;
+
+        while let Some((pos, dist)) = queue.pop_front() {
+            ans = ans.max(dist);
+            for n in self.next(pos) {
+                if !visited[n.0][n.1] {
+                    visited[n.0][n.1] = true;
+                    queue.push_back((n, dist + 1))
+                }
+            }
+        }
+
+        ans
+    }
+}
+
 #[cfg(test)]
 mod day21_tests {
     use super::*;
@@ -149,8 +209,44 @@ mod day21_tests {
 
     #[test]
     fn test_part_2() {
-        let input = Day21::test_input();
-        let ans = Day21::solve_part_2(input);
-        assert_eq!(ans, "");
+        let input = String::from(
+            ".................................
+.....###.#......###.#......###.#.
+.###.##..#..###.##..#..###.##..#.
+..#.#...#....#.#...#....#.#...#..
+....#.#........#.#........#.#....
+.##...####..##...####..##...####.
+.##..#...#..##..#...#..##..#...#.
+.......##.........##.........##..
+.##.#.####..##.#.####..##.#.####.
+.##..##.##..##..##.##..##..##.##.
+.................................
+.................................
+.....###.#......###.#......###.#.
+.###.##..#..###.##..#..###.##..#.
+..#.#...#....#.#...#....#.#...#..
+....#.#........#.#........#.#....
+.##...####..##..S####..##...####.
+.##..#...#..##..#...#..##..#...#.
+.......##.........##.........##..
+.##.#.####..##.#.####..##.#.####.
+.##..##.##..##..##.##..##..##.##.
+.................................
+.................................
+.....###.#......###.#......###.#.
+.###.##..#..###.##..#..###.##..#.
+..#.#...#....#.#...#....#.#...#..
+....#.#........#.#........#.#....
+.##...####..##...####..##...####.
+.##..#...#..##..#...#..##..#...#.
+.......##.........##.........##..
+.##.#.####..##.#.####..##.#.####.
+.##..##.##..##..##.##..##..##.##.
+.................................",
+        );
+        let map: Map = input.parse().unwrap();
+
+        let ans = map.reachable(10);
+        assert_eq!(ans, 50);
     }
 }
