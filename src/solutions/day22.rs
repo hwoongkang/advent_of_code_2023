@@ -1,7 +1,7 @@
 use std::collections::{HashSet, VecDeque};
 use std::{cmp::Ordering, ops::SubAssign, str::FromStr};
 
-use std::ops::{Range as StdRange, Sub};
+use std::ops::Range as StdRange;
 
 use super::Solution;
 
@@ -23,7 +23,7 @@ impl Solution for Day22 {
     fn solve_part_1(input: String) -> String {
         let mut bricks: Vec<Brick> = input.lines().map(|line| line.parse().unwrap()).collect();
 
-        let (under, over, topo) = collapse_bricks(&mut bricks);
+        let (_, over, _) = collapse_bricks(&mut bricks);
 
         let mut supported_by: Vec<Vec<usize>> = bricks.iter().map(|_| vec![]).collect();
 
@@ -50,7 +50,7 @@ impl Solution for Day22 {
     fn solve_part_2(input: String) -> String {
         let mut bricks: Vec<Brick> = input.lines().map(|line| line.parse().unwrap()).collect();
 
-        let (under, over, topo) = collapse_bricks(&mut bricks);
+        let (_, over, _) = collapse_bricks(&mut bricks);
 
         let mut supported_by: Vec<Vec<usize>> = bricks.iter().map(|_| vec![]).collect();
         let mut supports: Vec<Vec<usize>> = bricks.iter().map(|_| vec![]).collect();
@@ -202,14 +202,14 @@ impl Range {
         let e = a.max(b);
         Self(s, e + 1)
     }
-    fn size(&self) -> usize {
+    fn _size(&self) -> usize {
         if self.1 <= self.0 {
             0
         } else {
             self.1 - self.0
         }
     }
-    fn overlap(&self, rhs: &Range) -> Option<Range> {
+    fn _overlap(&self, rhs: &Range) -> Option<Range> {
         if self.overlaps(rhs) {
             Some(Range(self.0.max(rhs.0), self.1.min(rhs.1)))
         } else {
