@@ -47,8 +47,57 @@ impl Solution for Day22 {
         (bricks.len() - crucial.len()).to_string()
     }
 
-    fn solve_part_2(_input: String) -> String {
-        String::from("0")
+    fn solve_part_2(input: String) -> String {
+        let mut bricks: Vec<Brick> = input.lines().map(|line| line.parse().unwrap()).collect();
+
+        let (under, over, topo) = collapse_bricks(&mut bricks);
+
+        let mut supported_by: Vec<Vec<usize>> = bricks.iter().map(|_| vec![]).collect();
+        let mut supports: Vec<Vec<usize>> = bricks.iter().map(|_| vec![]).collect();
+
+        for i in 0..bricks.len() {
+            let me = &bricks[i];
+            for j in over[i].iter() {
+                let under_me = &bricks[*j];
+                if under_me.distance(me) == 0 {
+                    supported_by[i].push(*j);
+                    supports[*j].push(i);
+                }
+            }
+        }
+
+        let simulate = |root: usize| {
+            let mut removed: Vec<bool> = bricks.iter().map(|_| false).collect();
+            let mut queue = VecDeque::from([root]);
+            removed[root] = true;
+            let mut count = 0;
+            while let Some(i) = queue.pop_front() {
+                count += 1;
+                for &next in supports[i].iter() {
+                    if removed[next] {
+                        continue;
+                    }
+
+                    let should_remove = supported_by[next]
+                        .iter()
+                        .map(|index| removed[*index])
+                        .fold(true, |acc, now| acc && now);
+                    if should_remove {
+                        removed[next] = true;
+                        queue.push_back(next);
+                    }
+                }
+            }
+            count - 1
+        };
+
+        let ans = (0..bricks.len())
+            .into_iter()
+            .map(simulate)
+            .sum::<usize>()
+            .to_string();
+
+        ans
     }
 }
 
@@ -279,7 +328,7 @@ mod day22_tests {
     fn test_part_2() {
         let input = Day22::test_input();
         let ans = Day22::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "7");
     }
 
     #[test]
