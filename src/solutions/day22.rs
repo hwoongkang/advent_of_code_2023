@@ -1,4 +1,5 @@
-use std::{collections::HashMap, ops::SubAssign, str::FromStr};
+use std::collections::VecDeque;
+use std::{cmp::Ordering, collections::HashMap, ops::SubAssign, str::FromStr};
 
 use std::ops::Range as StdRange;
 
@@ -21,16 +22,11 @@ impl Solution for Day22 {
 
     fn solve_part_1(input: String) -> String {
         let mut bricks: Vec<Brick> = input.lines().map(|line| line.parse().unwrap()).collect();
-        let mut supports: HashMap<Pos, usize> = HashMap::new();
-        let mut at_rest: Vec<bool> = bricks.iter().map(|_| false).collect();
 
-        loop {
-            let mut flag = true;
+        let (edges, topo) = topological_sort(&bricks);
 
-            if flag {
-                break;
-            }
-        }
+        println!("{:?}", edges.iter().map(|e| e.len()).collect::<Vec<_>>());
+
         String::from("0")
     }
 
@@ -191,6 +187,50 @@ impl IntoIterator for Range {
     }
 }
 
+fn topological_sort(
+    bricks: &[Brick],
+) -> (
+    Vec<Vec<usize>>, // relations
+    Vec<usize>,      //result
+) {
+    let mut edges: Vec<Vec<usize>> = bricks.iter().map(|_| vec![]).collect();
+    let len = bricks.len();
+    for i in 0..(len - 1) {
+        for j in (i + 1)..len {
+            let lhs = &bricks[i];
+            let rhs = &bricks[j];
+            match lhs.partial_cmp(rhs) {
+                None => {}
+                Some(Ordering::Less) => edges[i].push(j),
+                Some(Ordering::Greater) => edges[j].push(i),
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    let mut visited: Vec<bool> = bricks.iter().map(|_| false).collect();
+
+    let mut ans: VecDeque<usize> = VecDeque::new();
+
+    fn dfs(from: usize, edges: &[Vec<usize>], visited: &mut [bool], ans: &mut VecDeque<usize>) {
+        for &next in edges[from].iter() {
+            if !visited[next] {
+                visited[next] = true;
+                dfs(next, edges, visited, ans);
+            }
+        }
+        ans.push_front(from);
+    }
+
+    for i in 0..len {
+        if !visited[i] {
+            dfs(i, &edges, &mut visited, &mut ans);
+        }
+    }
+
+    (edges, Vec::from(ans))
+}
+
 #[cfg(test)]
 mod day22_tests {
     use super::*;
@@ -228,5 +268,31 @@ mod day22_tests {
 
         let b: Brick = "2,1,8~2,1,9".parse().unwrap();
         assert!(a.partial_cmp(&b).is_none())
+    }
+
+    #[test]
+    fn test_topological_sort() {
+        let input = Day22::test_input();
+        let bricks: Vec<Brick> = input.lines().map(|line| line.parse().unwrap()).collect();
+        let (edges, ans) = topological_sort(&bricks);
+        assert_eq!(
+            edges,
+            vec![
+                vec![1, 2, 5, 6],
+                vec![3, 4],
+                vec![3, 4],
+                vec![5],
+                vec![5],
+                vec![6],
+                vec![]
+            ]
+        );
+
+        assert!(
+            ans == [0, 1, 2, 3, 4, 5, 6]
+                || ans == [0, 2, 1, 3, 4, 5, 6]
+                || ans == [0, 1, 2, 4, 3, 5, 6]
+                || ans == [0, 2, 1, 4, 3, 5, 6]
+        );
     }
 }
