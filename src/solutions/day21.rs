@@ -58,9 +58,9 @@ impl Solution for Day21 {
         // let mut ans = String::new();
         // ans += &map.reachable(65, None).to_string();
         // ans += ", ";
-        // ans += &map.reachable_repeat(1, 131 + 65).to_string();
+        // ans += &map._reachable_repeat(1, 131 + 65).to_string();
         // ans += ", ";
-        // ans += &map.reachable_repeat(2, 131 * 2 + 65).to_string();
+        // ans += &map._reachable_repeat(2, 131 * 2 + 65).to_string();
         // ans
 
         // 3699 + 14750 x + 14688 x^2
@@ -172,7 +172,7 @@ impl Map {
         ans
     }
 
-    fn reachable_repeat(&self, repeat: usize, steps: usize) -> usize {
+    fn _reachable_repeat(&self, repeat: usize, steps: usize) -> usize {
         let lines: Vec<String> = self
             .tiles
             .iter()
@@ -208,7 +208,7 @@ impl Map {
 }
 
 impl Map {
-    fn max_step(&self) -> usize {
+    fn _max_step(&self) -> usize {
         let mut visited: Vec<Vec<bool>> = self
             .tiles
             .iter()
@@ -251,7 +251,7 @@ mod day21_tests {
         let input = Day21::test_input();
         let map: Map = input.parse().unwrap();
 
-        let ans = map.reachable_repeat(1, 10);
+        let ans = map._reachable_repeat(1, 10);
         assert_eq!(ans, 50);
     }
 }
