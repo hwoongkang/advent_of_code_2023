@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     ops::{Add, Div, DivAssign, Sub, SubAssign},
     str::FromStr,
 };
