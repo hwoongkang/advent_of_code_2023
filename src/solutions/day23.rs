@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+    collections::{HashMap, VecDeque},
+    str::FromStr,
+};
 
 use super::Solution;
 
@@ -42,8 +45,8 @@ impl Solution for Day23 {
     }
 
     fn solve_part_2(input: String) -> String {
-        let map: Map = input.parse().unwrap();
-        String::from("0")
+        let mut map: Map = input.parse().unwrap();
+        map.part_2().to_string()
     }
 }
 
@@ -93,12 +96,33 @@ impl FromStr for Map {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 struct Pos(usize, usize);
 
 impl Map {
     fn size(&self) -> (usize, usize) {
         (self.tiles.len(), self.tiles[0].len())
+    }
+    fn apply_slope(&self, candidates: Vec<(Pos, usize)>) -> Vec<(Pos, usize)> {
+        candidates
+            .into_iter()
+            .filter_map(|(pos, dist)| {
+                let tile = &self.tiles[pos.0][pos.1];
+                match tile {
+                    Forest => unreachable!(),
+                    Path => Some((pos, dist)),
+                    Slope(dir) => {
+                        let new_pos = match dir {
+                            South => Pos(pos.0 + 1, pos.1),
+                            East => Pos(pos.0, pos.1 + 1),
+                            North => Pos(pos.0 - 1, pos.1),
+                            West => Pos(pos.0, pos.1 - 1),
+                        };
+                        Some((new_pos, dist + 1))
+                    }
+                }
+            })
+            .collect()
     }
     fn next(&self, from: Pos) -> Vec<(Pos, usize)> {
         let Pos(r, c) = from;
@@ -121,16 +145,7 @@ impl Map {
                 let tile = &self.tiles[pos.0][pos.1];
                 match tile {
                     Forest => None,
-                    Path => Some((pos, 1)),
-                    Slope(dir) => {
-                        let new_pos = match dir {
-                            South => Pos(pos.0 + 1, pos.1),
-                            East => Pos(pos.0, pos.1 + 1),
-                            North => Pos(pos.0 - 1, pos.1),
-                            West => Pos(pos.0, pos.1 - 1),
-                        };
-                        Some((new_pos, 2))
-                    }
+                    _ => Some((pos, 1)),
                 }
             })
             .collect()
@@ -152,8 +167,6 @@ impl Map {
         let (max_r, max_c) = self.size();
         let end = Pos(max_r - 1, max_c - 2);
 
-        let map = &self;
-
         fn dfs(
             pos: Pos,
             dist: usize,
@@ -170,7 +183,7 @@ impl Map {
                 distances[pos.0][pos.1] = dist;
             }
 
-            for (next, add_d) in map.next(pos) {
+            for (next, add_d) in map.apply_slope(map.next(pos)) {
                 dfs(next, dist + add_d, map, visited, distances);
             }
 
@@ -179,6 +192,98 @@ impl Map {
         dfs(start, 0, &self, &mut visited, &mut distances);
         distances[end.0][end.1]
     }
+
+    fn part_2(&self) -> usize {
+        let mut nodes: HashMap<Pos, Node> = HashMap::new();
+
+        fn add_node(pos: Pos, map: &Map, nodes: &mut HashMap<Pos, Node>) {
+            let mut visited: Vec<Vec<bool>> = map
+                .tiles
+                .iter()
+                .map(|row| row.iter().map(|_| false).collect())
+                .collect();
+            visited[pos.0][pos.1] = true;
+            let mut stack = vec![(pos, 0)];
+
+            let mut me = Node {
+                pos,
+                neighbors: vec![],
+            };
+
+            let original = pos;
+
+            nodes.insert(me.pos, me);
+
+            while let Some((pos, dist)) = stack.pop() {
+                let next = map.next(pos);
+                let is_branch = next.len() != 2;
+                if pos == original && dist > 0 {
+                    panic!("cannot solve with this");
+                }
+                if is_branch && dist > 0 {
+                    nodes
+                        .get_mut(&original)
+                        .unwrap()
+                        .neighbors
+                        .push((pos, dist));
+                    visited[pos.0][pos.1] = true;
+                    if nodes.get(&pos).is_none() {
+                        add_node(pos, map, nodes);
+                    }
+                } else {
+                    for (next_pos, d) in next {
+                        if !visited[next_pos.0][next_pos.1] {
+                            visited[next_pos.0][next_pos.1] = true;
+                            stack.push((next_pos, dist + d));
+                        }
+                    }
+                }
+            }
+        }
+
+        add_node(Pos(0, 1), &self, &mut nodes);
+
+        let start = Pos(0, 1);
+        let (max_r, max_c) = self.size();
+        let end = Pos(max_r - 1, max_c - 2);
+
+        let mut visited: HashMap<Pos, bool> = nodes.keys().map(|pos| (*pos, false)).collect();
+        let mut distances: HashMap<Pos, usize> = nodes.keys().map(|pos| (*pos, 0)).collect();
+
+        println!("nodes: {}", nodes.len());
+
+        fn dfs(
+            pos: Pos,
+            dist: usize,
+
+            nodes: &HashMap<Pos, Node>,
+            visited: &mut HashMap<Pos, bool>,
+            distances: &mut HashMap<Pos, usize>,
+        ) {
+            if *visited.get(&pos).unwrap() {
+                return;
+            }
+            *visited.get_mut(&pos).unwrap() = true;
+
+            if distances.get(&pos).unwrap() < &dist {
+                *distances.get_mut(&pos).unwrap() = dist;
+            }
+
+            for (next, add_d) in nodes.get(&pos).unwrap().neighbors.iter() {
+                dfs(*next, dist + add_d, nodes, visited, distances);
+            }
+
+            *visited.get_mut(&pos).unwrap() = false;
+        }
+        dfs(start, 0, &nodes, &mut visited, &mut distances);
+        *distances.get(&end).unwrap()
+    }
+}
+
+#[derive(Debug)]
+struct Node {
+    pos: Pos,
+    neighbors: Vec<(Pos, usize)>,
 }
 
 #[cfg(test)]
@@ -196,6 +301,6 @@ mod day23_tests {
     fn test_part_2() {
         let input = Day23::test_input();
         let ans = Day23::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "154");
     }
 }
