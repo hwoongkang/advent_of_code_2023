@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    str::FromStr,
-};
+use std::{collections::HashMap, str::FromStr};
 
 use super::Solution;
 
@@ -45,7 +42,7 @@ impl Solution for Day23 {
     }
 
     fn solve_part_2(input: String) -> String {
-        let mut map: Map = input.parse().unwrap();
+        let map: Map = input.parse().unwrap();
         map.part_2().to_string()
     }
 }
@@ -205,7 +202,7 @@ impl Map {
             visited[pos.0][pos.1] = true;
             let mut stack = vec![(pos, 0)];
 
-            let mut me = Node {
+            let me = Node {
                 pos,
                 neighbors: vec![],
             };
