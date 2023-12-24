@@ -1,5 +1,6 @@
 use std::{
-    ops::{Add, Div, DivAssign, Sub},
+    collections::{HashMap, HashSet},
+    ops::{Add, Div, DivAssign, Sub, SubAssign},
     str::FromStr,
 };
 
@@ -23,6 +24,98 @@ impl Solution for Day24 {
     }
 
     fn solve_part_2(input: String) -> String {
+        let hails: Vec<Hail> = input
+            .lines()
+            .map(|line| line.trim().parse().unwrap())
+            .collect();
+
+        // reddit idea: iterate 하면서 같은 곳에서 만나게 하기
+
+        let mut candidates: HashMap<Vec3D, Vec3D> = HashMap::new();
+        for u in -200i128..200i128 {
+            if u % 50 == 0 {
+                println!("u={}", u);
+            }
+            for v in -200i128..20064 {
+                let vel = Vec3D { x: u, y: v, z: 0 };
+                let hails: Vec<Hail> = hails.iter().take(2).map(|hail| hail.rel_vel(vel)).collect();
+                if vel == (Vec3D { x: -3, y: 1, z: 0 }) {
+                    // println!("{:?}", hails[0].collides_at(&hails[1]));
+                    // println!("{:?}", hails[0]);
+                }
+                if let Some(pos) = hails[0].collides_at(&hails[1]) {
+                    candidates.insert(vel, pos);
+                }
+            }
+        }
+
+        let filtered: HashMap<Vec3D, Vec3D> = candidates
+            .into_iter()
+            .filter_map(|(vel, pos)| {
+                let hails: Vec<Hail> = hails.iter().map(|hail| hail.rel_vel(vel)).collect();
+                //for i in 2..(hails.len()) {
+                for i in 2..(hails.len()) {
+                    let lhs = hails[i - 1];
+                    let rhs = hails[i];
+                    if vel == (Vec3D { x: -3, y: 1, z: 0 }) {
+                        // println!("{:?}, {:?}", lhs, rhs);
+                        // println!("{:?}", lhs.collides_at(&rhs));
+                    }
+                    if let Some(p) = lhs.collides_at(&rhs) {
+                        if !(p.x == pos.x && p.y == pos.y) {
+                            return None;
+                        }
+                    }
+                }
+                Some((vel, pos))
+            })
+            .collect();
+
+        for (vel, pos) in filtered.into_iter() {
+            for w in -500i128..500i128 {
+                if w % 50 == 0 {
+                    println!("w={}", w);
+                }
+                let vel = Vec3D {
+                    x: vel.x,
+                    y: vel.y,
+                    z: w,
+                };
+                let hails: Vec<Hail> = hails.iter().map(|hail| hail.rel_vel(vel)).collect();
+
+                // x0 + t * u = x;
+                // y0 + t * v = y;
+
+                let t0 = hails[0].t(pos);
+                if t0 < 0 {
+                    continue;
+                }
+                let p0 = hails[0].at_t(t0);
+
+                let mut found = true;
+
+                for i in 1..(hails.len()) {
+                    let hail = hails[i];
+                    let t = hail.t(pos);
+                    if t < 0 {
+                        found = false;
+                        break;
+                    }
+                    let p = hail.at_t(t);
+                    if p != p0 {
+                        found = false;
+                        break;
+                    }
+                }
+                if found {
+                    println!("!!");
+                    println!("pos: {:?}", p0);
+                    println!("vel: {:?}", vel);
+                    return (p0.x + p0.y + p0.z).to_string();
+                }
+            }
+        }
+
         String::from("0")
     }
 }
@@ -52,7 +145,7 @@ fn part_1(input: String, min: f64, max: f64) -> usize {
     ans
 }
 
-fn gcd(a: i64, b: i64) -> i64 {
+fn gcd(a: i128, b: i128) -> i128 {
     let a = a.abs();
     let b = b.abs();
     if a * b == 0 {
@@ -69,11 +162,11 @@ fn gcd(a: i64, b: i64) -> i64 {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 struct Vec3D {
-    x: i64,
-    y: i64,
-    z: i64,
+    x: i128,
+    y: i128,
+    z: i128,
 }
 
 impl Vec3D {
@@ -96,8 +189,8 @@ impl Vec3D {
     }
 }
 
-impl DivAssign<i64> for Vec3D {
-    fn div_assign(&mut self, rhs: i64) {
+impl DivAssign<i128> for Vec3D {
+    fn div_assign(&mut self, rhs: i128) {
         self.x /= rhs;
         self.y /= rhs;
         self.z /= rhs;
@@ -126,8 +219,14 @@ impl Sub for Vec3D {
     }
 }
 
+impl SubAssign for Vec3D {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
+    }
+}
+
 impl Div for Vec3D {
-    type Output = i64;
+    type Output = i128;
     fn div(self, rhs: Self) -> Self::Output {
         if !self.is_parallel(&rhs) {
             panic!("cannot divide: {:?} and {:?}", self, rhs);
@@ -152,7 +251,7 @@ impl Div for Vec3D {
 impl FromStr for Vec3D {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let nums: Vec<i64> = s.split(",").map(|s| s.trim().parse().unwrap()).collect();
+        let nums: Vec<i128> = s.split(",").map(|s| s.trim().parse().unwrap()).collect();
         Ok(Self {
             x: nums[0],
             y: nums[1],
@@ -161,7 +260,7 @@ impl FromStr for Vec3D {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct Hail {
     pos: Vec3D,
     vel: Vec3D,
@@ -180,6 +279,45 @@ impl FromStr for Hail {
 }
 
 impl Hail {
+    fn rel_vel(&self, vel: Vec3D) -> Self {
+        Hail {
+            pos: self.pos,
+            vel: self.vel - vel,
+        }
+    }
+    fn collides_at(&self, rhs: &Self) -> Option<Vec3D> {
+        let Hail { pos: p0, vel: v0 } = self;
+        let Hail { pos: p1, vel: v1 } = rhs;
+        let a = v0.x;
+        let b = -v1.x;
+        let c = v0.y;
+        let d = -v1.y;
+        let e = p1.x - p0.x;
+        let f = p1.y - p0.y;
+        // a= 2, b = -1, c = -2, d = 3, e = 2, f = 6
+        // det = 6 -2 = 4;
+        // de = 6 bf = -6
+        //
+        let det = a * d - b * c;
+        if det == 0 {
+            return None;
+        }
+        // t0= e * d / det - f * b /det;
+        let de = d * e;
+        let bf = b * f;
+        let t = de - bf;
+        if t % det == 0 {
+            let t = t / det;
+
+            Some(Vec3D {
+                x: self.pos.x + t * self.vel.x,
+                y: self.pos.y + t * self.vel.y,
+                z: self.pos.z + t * self.vel.z,
+            })
+        } else {
+            None
+        }
+    }
     fn collides(&self, rhs: &Self) -> Option<(f64, f64)> {
         let Hail { pos: p0, vel: v0 } = self;
         let Hail { pos: p1, vel: v1 } = rhs;
@@ -214,6 +352,27 @@ impl Hail {
         let z = (self.pos.z as f64) + (self.vel.z as f64) * t;
         (x, y, z)
     }
+
+    fn t(&self, pos: Vec3D) -> i128 {
+        if self.vel.x != 0 {
+            (pos.x - self.pos.x) / self.vel.x
+        } else if self.vel.y != 0 {
+            (pos.y - self.pos.y) / self.vel.y
+        } else if self.vel.z != 0 {
+            (pos.z - self.pos.z) / self.vel.z
+        } else {
+            0
+        }
+        // self.pos.x + t * self.vel.x = pos.x
+    }
+
+    fn at_t(&self, t: i128) -> Vec3D {
+        Vec3D {
+            x: self.pos.x + t * self.vel.x,
+            y: self.pos.y + t * self.vel.y,
+            z: self.pos.z + t * self.vel.z,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -231,7 +390,7 @@ mod day24_tests {
     fn test_part_2() {
         let input = Day24::test_input();
         let ans = Day24::solve_part_2(input);
-        assert_eq!(ans, "");
+        assert_eq!(ans, "47");
     }
 
     #[test]
