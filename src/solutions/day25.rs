@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 
 use super::Solution;
 
@@ -26,7 +26,7 @@ impl Solution for Day25 {
     fn solve_part_1(input: String) -> String {
         let graph = Graph::from(&input);
 
-        String::from("")
+        graph.part_1().to_string()
     }
 
     fn solve_part_2(_input: String) -> String {
@@ -68,46 +68,84 @@ impl Graph {
                     b_cost = Some(*cost);
                 }
             }
-            node.edges = node
-                .edges
-                .drain(..)
-                .filter_map(|(name, cost)| {
-                    if name == b {
-                        None
-                    } else if name == a {
-                        let mut cost = a_cost.unwrap();
-                        if let Some(b_cost) = b_cost {
-                            cost += b_cost;
-                        }
-                        updated.push((node.name.clone(), cost));
-                        Some((name, cost))
-                    } else {
-                        Some((name, cost))
-                    }
-                })
-                .collect();
+            let cost = match (a_cost, b_cost) {
+                (None, None) => {
+                    None //do nothing
+                }
+                (Some(a_cost), None) => {
+                    Some(a_cost) // do nothing
+                }
+                (None, Some(b_cost)) => {
+                    node.edges = node
+                        .edges
+                        .drain(..)
+                        .map(|(name, cost)| {
+                            if name == b {
+                                (a.to_string(), b_cost)
+                            } else {
+                                (name, cost)
+                            }
+                        })
+                        .collect();
+                    Some(b_cost)
+                }
+                (Some(a_cost), Some(b_cost)) => {
+                    let new_cost = a_cost + b_cost;
+
+                    node.edges = node
+                        .edges
+                        .drain(..)
+                        .filter_map(|(name, cost)| {
+                            if name == b {
+                                None
+                            } else if name == a {
+                                Some((name, new_cost))
+                            } else {
+                                Some((name, cost))
+                            }
+                        })
+                        .collect();
+                    Some(new_cost)
+                }
+            };
+            if let Some(cost) = cost {
+                updated.push((node.name.clone(), cost));
+            }
         }
         let node_a = self.nodes.get_mut(a).unwrap();
         node_a.edges = updated;
     }
 
-    // min_cut, partition_size
-    fn min_cut_phase(&mut self, node_name: &str) -> (usize, usize) {
-        let mut last = ("".to_string(), node_name.to_string());
+    // min_cut, deleted
+    fn min_cut_phase(&mut self, a: &str) -> (usize, (String, String)) {
+        let mut last = ("".to_string(), a.to_string());
 
-        let mut partition = HashSet::from([node_name.to_string()]);
+        let mut partition = HashSet::from([a.to_string()]);
+
         while partition.len() < self.nodes.len() {
-            let mut node_to_add = (0, "".to_string());
-            for n in partition.iter() {
-                let node = self.nodes.get(n).unwrap();
-                for (to, cost) in node.edges.iter() {
-                    if partition.get(to).is_none() && *cost > node_to_add.0 {
-                        node_to_add = (*cost, to.clone());
-                    }
-                }
-            }
-            partition.insert(node_to_add.1.to_string());
-            last = (last.1, node_to_add.1);
+            let candidates = self
+                .nodes
+                .values()
+                .filter(|node| partition.get(&node.name).is_none());
+            let with_tightness = candidates.map(|node| {
+                let tightness = node
+                    .edges
+                    .iter()
+                    .filter_map(|(name, cost)| {
+                        if partition.get(name).is_some() {
+                            Some(cost)
+                        } else {
+                            None
+                        }
+                    })
+                    .sum::<usize>();
+                (node, tightness)
+            });
+            let node_to_add = with_tightness.max_by(|a, b| a.1.cmp(&b.1)).unwrap();
+            // let candidates: Vec<&Node> = self.nodes.values().filter_map(|node| {}).collect();
+
+            partition.insert(node_to_add.0.name.to_string());
+            last = (last.1, node_to_add.0.name.clone());
         }
 
         let ans = self
@@ -119,21 +157,44 @@ impl Graph {
             .map(|(_, cost)| *cost)
             .sum::<usize>();
         self.merge(&last.0, &last.1);
-        (ans, partition.len())
+        (ans, last)
+    }
+
+    // minimum_cut, partition_size
+    fn minimum_cut(&self, node_name: &str) -> (usize, usize) {
+        let mut graph = self.clone();
+        // min cut, partition size at that time
+        let mut min_cut = (usize::MAX, 0);
+        let mut order: HashMap<String, usize> =
+            self.nodes.keys().map(|key| (key.clone(), 1)).collect();
+        let size = self.nodes.len();
+
+        while graph.nodes.len() > 1 {
+            if graph.nodes.len() % (size / 10) == 0 {
+                println!("{}%", 100 * graph.nodes.len() / size)
+            }
+
+            let (curr, (s, t)) = graph.min_cut_phase(&node_name);
+
+            let deleted = order.remove(&t).unwrap();
+
+            *order.get_mut(&s).unwrap() += deleted;
+
+            if curr < min_cut.0 {
+                min_cut = (curr, deleted);
+            }
+        }
+        min_cut
     }
     fn part_1(&self) -> usize {
         // if min cut is 3: multiply the sizes of the two partition
-        let mut min_cut = usize::MAX;
-        let mut ans = (0, 0);
-        fn minimum_cut_phase(graph: &mut Graph, node_name: &str) -> usize {
-            let mut partition = HashSet::from([node_name]);
+        let pivot = self.nodes.keys().next().unwrap();
 
-            for n in partition.iter() {
-                let node = graph.nodes.get(*n).unwrap();
-            }
-            0
-        }
-        0
+        let (min_cut, node_order) = self.minimum_cut(pivot);
+        println!("min_cut was: {}", min_cut);
+        println!("pivot was: {}", pivot);
+        let n = self.nodes.len();
+        (n - node_order) * node_order
     }
     fn from(str: &str) -> Self {
         let mut nodes: HashMap<String, Node> = HashMap::new();
@@ -225,7 +286,7 @@ mod day25_tests {
     }
 
     #[test]
-    fn test_min_cut_phase() {
+    fn test_min_cut() {
         let a = Node {
             name: "a".to_string(),
             edges: vec![
@@ -250,7 +311,7 @@ mod day25_tests {
             name: "t".to_string(),
             edges: vec![("a".to_string(), 3), ("s".to_string(), 1)],
         };
-        let mut graph = Graph {
+        let graph = Graph {
             nodes: HashMap::from([
                 ("a".to_string(), a),
                 ("b".to_string(), b),
@@ -258,13 +319,6 @@ mod day25_tests {
                 ("t".to_string(), t),
             ]),
         };
-        println!("{:?}", graph);
-        let min_cut = graph.min_cut_phase("a");
-        println!("{:?}", graph);
-        assert_eq!(min_cut, (4, 4));
-        let min_cut = graph.min_cut_phase("a");
-        assert_eq!(min_cut, (7, 3));
-        let min_cut = graph.min_cut_phase("a");
-        assert_eq!(min_cut, (9, 2));
+        assert_eq!(graph.part_1(), 3)
     }
 }
